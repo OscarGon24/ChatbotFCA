@@ -1,0 +1,9 @@
+# Ignorar la base de datos vectorial
+mi_base_rag/
+
+# Ignorar variables de entorno (¡Crítico por tu API Key!)
+.env
+
+# Ignorar archivos temporales de Python
+__pycache__/
+*.pyc

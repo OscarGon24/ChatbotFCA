@@ -1,0 +1,144 @@
+import os
+from dotenv import load_dotenv
+
+import pandas as pd
+import chromadb
+from sentence_transformers import SentenceTransformer
+
+load_dotenv()
+
+ruta_oferta = os.getenv("ruta_oferta")
+ruta_directorio = os.getenv("ruta_directorio")
+ruta_titulacion = os.getenv("ruta_titulacion")
+
+print("Iniciando el motor de Inteligencia Artificial...")
+modelo_lenguaje = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+
+print("Conectando a la Base de Datos Vectorial...")
+cliente_chroma = chromadb.PersistentClient(path="./mi_base_rag")
+
+colecciones_existentes = [col.name for col in cliente_chroma.list_collections()]
+if "fca_conocimiento" in colecciones_existentes:
+    cliente_chroma.delete_collection(name="fca_conocimiento")
+    print("Colección anterior borrada para empezar limpios.")
+
+coleccion = cliente_chroma.create_collection(name="fca_conocimiento")
+
+
+documentos_texto = []
+vectores_matematicos = []
+ids_unicos = []
+metadatos_lista = []
+
+print("\nVectorizando el conocimiento...")
+
+try:
+    print("Leyendo Oferta Educativa...")
+    datos_oferta = pd.read_csv(ruta_oferta, encoding='utf-8')
+    
+    for indice, fila in datos_oferta.iterrows():
+        licenciatura = fila.get('Licenciatura', 'desconocida')
+        perfil = fila.get('Perfil', 'No hay descripción del perfil disponible.')
+        conocimientos = fila.get('Conocimientos', 'No hay información de conocimientos.')
+        habilidades = fila.get('Habilidades', 'No hay información de habilidades.')
+        actitudes = fila.get('Actitudes', 'No hay información de actitudes.')
+        
+        parrafo = f"La universidad ofrece la licenciatura de {licenciatura}, con un perfil {perfil}, conocimientos {conocimientos}, habilidades {habilidades} y actitudes {actitudes}."
+        vector = modelo_lenguaje.encode(parrafo).tolist()
+        
+        licen_limpia = str(licenciatura).lower()
+        perfil_limpio = str(perfil).lower()
+        
+        if "informática" in licen_limpia or "informatica" in licen_limpia or "informática" in perfil_limpio:
+            etiqueta_tema = "informatica"
+        elif "administración" in licen_limpia or "administracion" in licen_limpia or "administración" in perfil_limpio:
+            etiqueta_tema = "administracion"
+        elif "contaduría" in licen_limpia or "contaduria" in licen_limpia or "contabilidad" in licen_limpia:
+            etiqueta_tema = "contabilidad"
+        elif "negocios" in licen_limpia or "negocios" in perfil_limpio:
+            etiqueta_tema = "negocios"
+        else:
+            etiqueta_tema = "general"
+            
+        documentos_texto.append(parrafo)
+        vectores_matematicos.append(vector)
+        ids_unicos.append(f"oferta_{indice}")
+        metadatos_lista.append({"tipo": "oferta", "tema": etiqueta_tema})
+except FileNotFoundError:
+    print("❌ No se encontró el archivo de Oferta Educativa.")
+
+try:
+    print("Leyendo Directorio FCA...")
+    datos_directorio = pd.read_csv(ruta_directorio, encoding='utf-8')
+    
+    for indice, fila in datos_directorio.iterrows():
+        oficina = fila.get('Oficina', 'desconocida')
+        cargo = fila.get('Cargo', 'sin cargo')
+        nombre = fila.get('Nombre', 'desconocido')
+        
+        telefonos = str(fila.get('Teléfonos', '')).replace("['", "").replace("']", "").replace("'", "")
+        correos = str(fila.get('Correos', '')).replace("['", "").replace("']", "").replace("'", "")
+        
+        parrafo = f"En la oficina de {oficina}, el contacto es {nombre} con el cargo de {cargo}. Su teléfono es {telefonos} y su correo electrónico es {correos}."
+        vector = modelo_lenguaje.encode(parrafo).tolist()
+        
+        # Filtros de directorio
+        oficina_limpia = str(oficina).lower()
+        cargo_limpio = str(cargo).lower()
+        
+        if "informática" in oficina_limpia or "informatica" in cargo_limpio:
+            etiqueta_tema = "informatica"
+        elif "administración" in oficina_limpia or "administracion" in cargo_limpio:
+            etiqueta_tema = "administracion"
+        elif "contaduría" in oficina_limpia or "contabilidad" in cargo_limpio:
+            etiqueta_tema = "contabilidad"
+        elif "negocios" in oficina_limpia or "negocios" in cargo_limpio:
+            etiqueta_tema = "negocios"
+        else:
+            etiqueta_tema = "general"
+            
+        documentos_texto.append(parrafo)
+        vectores_matematicos.append(vector)
+        ids_unicos.append(f"directorio_{indice}")
+        metadatos_lista.append({"tipo": "directorio", "tema": etiqueta_tema})
+except FileNotFoundError:
+    print("❌ No se encontró el archivo del Directorio.")
+
+# --- 3C. PROCESAMOS: TITULACIÓN ---
+try:
+    print("Leyendo modalidades de Titulación...")
+    datos_titulacion = pd.read_csv(ruta_titulacion, encoding='utf-8')
+    
+    for indice, fila in datos_titulacion.iterrows():
+        titulacion = fila.get('Titulación', 'desconocida')
+        categoria = fila.get('Categoría', 'Sin categoría')
+        periodo = fila.get('Periodo', 'Sin periodo especificado')
+        informacion = fila.get('Informacion', 'Sin información detallada.')
+        link = fila.get('Link', 'Sin enlace')
+        
+        # Redactamos el párrafo con todo el contexto para que la IA lo entienda
+        parrafo = f"Para la opción de titulación por {titulacion} (categoría: {categoria}), durante el periodo {periodo}, la información y requisitos son: {informacion}. Más detalles en el enlace: {link}."
+        vector = modelo_lenguaje.encode(parrafo).tolist()
+        
+        # Le asignamos directamente la etiqueta de titulación
+        etiqueta_tema = "titulacion"
+            
+        documentos_texto.append(parrafo)
+        vectores_matematicos.append(vector)
+        # Usamos un ID único para no sobreescribir otros datos
+        ids_unicos.append(f"titulacion_{indice}")
+        metadatos_lista.append({"tipo": "titulacion", "tema": etiqueta_tema})
+except FileNotFoundError:
+    print("❌ No se encontró el archivo titulacion_fca.csv.")
+
+if len(documentos_texto) > 0:
+    print("\nInyectando vectores combinados en ChromaDB...")
+    coleccion.add(
+        documents=documentos_texto,
+        embeddings=vectores_matematicos,
+        ids=ids_unicos,
+        metadatas=metadatos_lista
+    )
+    print(f"✅ ¡Éxito! Se guardaron {len(documentos_texto)} registros totales en la base de datos RAG.")
+else:
+    print("⚠️ No se guardó nada.")
