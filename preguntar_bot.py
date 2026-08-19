@@ -36,6 +36,10 @@ elif "negocios" in texto_usuario_limpio:
 elif "titulación" in texto_usuario_limpio or "titulacion" in texto_usuario_limpio or "titularme" in texto_usuario_limpio:
     print("🔎 Buscando en los archivos de Titulación...")
     filtro = {"tema": "titulacion"}
+elif "servicio" in texto_usuario_limpio or "social" in texto_usuario_limpio:
+    filtro = {"tema": "servicioSocial"}
+elif "beca" in texto_usuario_limpio or "apoyo" in texto_usuario_limpio:
+    filtro = {"tema": "beca"}
 else:
     filtro = {"tema": "general"}
 

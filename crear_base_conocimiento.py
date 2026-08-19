@@ -10,6 +10,8 @@ load_dotenv()
 ruta_oferta = os.getenv("ruta_oferta")
 ruta_directorio = os.getenv("ruta_directorio")
 ruta_titulacion = os.getenv("ruta_titulacion")
+ruta_servicio = os.getenv("ruta_servicio")
+ruta_beca = os.getenv("ruta_becas")
 
 print("Iniciando el motor de Inteligencia Artificial...")
 modelo_lenguaje = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
@@ -23,7 +25,6 @@ if "fca_conocimiento" in colecciones_existentes:
     print("Colección anterior borrada para empezar limpios.")
 
 coleccion = cliente_chroma.create_collection(name="fca_conocimiento")
-
 
 documentos_texto = []
 vectores_matematicos = []
@@ -130,6 +131,54 @@ try:
         metadatos_lista.append({"tipo": "titulacion", "tema": etiqueta_tema})
 except FileNotFoundError:
     print("❌ No se encontró el archivo titulacion_fca.csv.")
+
+# --- PROCESAMOS: SERVICIO SOCIAL --- 
+try:
+    print("Leyendo tipos de Servicio Social...")
+    datos_servicio = pd.read_csv(ruta_servicio, encoding='utf-8')
+    
+    for indice, fila in datos_servicio.iterrows():
+        seccion = fila.get('Sección', 'desconocida')
+        tema = fila.get('Tema', 'Sin categoría')
+        informacion = fila.get('Información', 'Sin información detallada.')
+        
+        # Redactamos el párrafo con todo el contexto para que la IA lo entienda
+        parrafo = f"Para el Servicio Social tienes la sección: {seccion}, con el tema: {tema}. La información de este tema es: {informacion}"
+        vector = modelo_lenguaje.encode(parrafo).tolist()
+        
+        # Le asignamos directamente la etiqueta de titulación
+        etiqueta_tema = "servicioSocial"
+            
+        documentos_texto.append(parrafo)
+        vectores_matematicos.append(vector)
+        ids_unicos.append(f"servicioSocial_{indice}")
+        metadatos_lista.append({"tipo": "servicioSocial", "tema": etiqueta_tema})
+except FileNotFoundError:
+    print("❌ No se encontró el archivo servicioSocial_fca.csv.")
+
+# --- PROCESAMOS: BECAS ---
+try:
+    print("Leyendo los tipos de Becas...")
+    datos_beca = pd.read_csv(ruta_beca, encoding='utf-8')
+    
+    for indice, fila in datos_beca.iterrows():
+        tema = fila.get('Tema', 'desconocida')
+        informacion = fila.get('Información', 'Sin información detallada.')
+        
+        # Redactamos el párrafo con todo el contexto para que la IA lo entienda
+        parrafo = f"Para la beca {tema} tiene la siguiente información {informacion}"
+        vector = modelo_lenguaje.encode(parrafo).tolist()
+        
+        # Le asignamos directamente la etiqueta de titulación
+        etiqueta_tema = "beca"
+            
+        documentos_texto.append(parrafo)
+        vectores_matematicos.append(vector)
+        # Usamos un ID único para no sobreescribir otros datos
+        ids_unicos.append(f"beca_{indice}")
+        metadatos_lista.append({"tipo": "beca", "tema": etiqueta_tema})
+except FileNotFoundError:
+    print("❌ No se encontró el archivo beca_fca.csv.")
 
 if len(documentos_texto) > 0:
     print("\nInyectando vectores combinados en ChromaDB...")
