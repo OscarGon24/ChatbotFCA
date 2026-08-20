@@ -12,6 +12,7 @@ ruta_directorio = os.getenv("ruta_directorio")
 ruta_titulacion = os.getenv("ruta_titulacion")
 ruta_servicio = os.getenv("ruta_servicio")
 ruta_beca = os.getenv("ruta_becas")
+ruta_cedi = os.getenv("ruta_cedi")
 
 print("Iniciando el motor de Inteligencia Artificial...")
 modelo_lenguaje = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
@@ -83,7 +84,6 @@ try:
         parrafo = f"En la oficina de {oficina}, el contacto es {nombre} con el cargo de {cargo}. Su teléfono es {telefonos} y su correo electrónico es {correos}."
         vector = modelo_lenguaje.encode(parrafo).tolist()
         
-        # Filtros de directorio
         oficina_limpia = str(oficina).lower()
         cargo_limpio = str(cargo).lower()
         
@@ -117,16 +117,13 @@ try:
         informacion = fila.get('Informacion', 'Sin información detallada.')
         link = fila.get('Link', 'Sin enlace')
         
-        # Redactamos el párrafo con todo el contexto para que la IA lo entienda
         parrafo = f"Para la opción de titulación por {titulacion} (categoría: {categoria}), durante el periodo {periodo}, la información y requisitos son: {informacion}. Más detalles en el enlace: {link}."
         vector = modelo_lenguaje.encode(parrafo).tolist()
         
-        # Le asignamos directamente la etiqueta de titulación
         etiqueta_tema = "titulacion"
             
         documentos_texto.append(parrafo)
         vectores_matematicos.append(vector)
-        # Usamos un ID único para no sobreescribir otros datos
         ids_unicos.append(f"titulacion_{indice}")
         metadatos_lista.append({"tipo": "titulacion", "tema": etiqueta_tema})
 except FileNotFoundError:
@@ -142,11 +139,9 @@ try:
         tema = fila.get('Tema', 'Sin categoría')
         informacion = fila.get('Información', 'Sin información detallada.')
         
-        # Redactamos el párrafo con todo el contexto para que la IA lo entienda
         parrafo = f"Para el Servicio Social tienes la sección: {seccion}, con el tema: {tema}. La información de este tema es: {informacion}"
         vector = modelo_lenguaje.encode(parrafo).tolist()
         
-        # Le asignamos directamente la etiqueta de titulación
         etiqueta_tema = "servicioSocial"
             
         documentos_texto.append(parrafo)
@@ -165,20 +160,38 @@ try:
         tema = fila.get('Tema', 'desconocida')
         informacion = fila.get('Información', 'Sin información detallada.')
         
-        # Redactamos el párrafo con todo el contexto para que la IA lo entienda
         parrafo = f"Para la beca {tema} tiene la siguiente información {informacion}"
         vector = modelo_lenguaje.encode(parrafo).tolist()
-        
-        # Le asignamos directamente la etiqueta de titulación
+
         etiqueta_tema = "beca"
             
         documentos_texto.append(parrafo)
         vectores_matematicos.append(vector)
-        # Usamos un ID único para no sobreescribir otros datos
         ids_unicos.append(f"beca_{indice}")
         metadatos_lista.append({"tipo": "beca", "tema": etiqueta_tema})
 except FileNotFoundError:
     print("❌ No se encontró el archivo beca_fca.csv.")
+
+# --- PROCESAMOS: CEDI ---
+try:
+    print("Leyendo los tipos de Becas...")
+    datos_cedi = pd.read_csv(ruta_cedi, encoding='utf-8')
+    
+    for indice, fila in datos_cedi.iterrows():
+        tema = fila.get('Titulo', 'desconocida')
+        informacion = fila.get('Información', 'Sin información detallada.')
+        
+        parrafo = f"Para el {tema} tiene la siguiente información {informacion}"
+        vector = modelo_lenguaje.encode(parrafo).tolist()
+
+        etiqueta_tema = "cedi"
+            
+        documentos_texto.append(parrafo)
+        vectores_matematicos.append(vector)
+        ids_unicos.append(f"cedi_{indice}")
+        metadatos_lista.append({"tipo": "cedi", "tema": etiqueta_tema})
+except FileNotFoundError:
+    print("❌ No se encontró el archivo cedi_fca.csv.")
 
 if len(documentos_texto) > 0:
     print("\nInyectando vectores combinados en ChromaDB...")
@@ -188,6 +201,6 @@ if len(documentos_texto) > 0:
         ids=ids_unicos,
         metadatas=metadatos_lista
     )
-    print(f"✅ ¡Éxito! Se guardaron {len(documentos_texto)} registros totales en la base de datos RAG.")
+    print(f"¡Éxito! Se guardaron {len(documentos_texto)} registros totales en la base de datos RAG.")
 else:
-    print("⚠️ No se guardó nada.")
+    print("No se guardó nada.")

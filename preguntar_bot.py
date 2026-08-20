@@ -22,28 +22,24 @@ texto_usuario_limpio = pregunta_usuario.lower()
 
 # 3. ENRUTAMIENTO DINÁMICO (Filtros)
 if "informatica" in texto_usuario_limpio or "informática" in texto_usuario_limpio:
-    print("🔎 Buscando en los archivos de Informática...")
     filtro = {"tema": "informatica"}
 elif "administracion" in texto_usuario_limpio or "administración" in texto_usuario_limpio:
-    print("🔎 Buscando en los archivos de Administración...")
     filtro = {"tema": "administracion"}
 elif "contabilidad" in texto_usuario_limpio or "contaduría" in texto_usuario_limpio or "contaduria" in texto_usuario_limpio:
-    print("🔎 Buscando en los archivos de Contaduría/Contabilidad...")
     filtro = {"tema": "contabilidad"}
 elif "negocios" in texto_usuario_limpio:
-    print("🔎 Buscando en los archivos de Negocios...")
     filtro = {"tema": "negocios"}
 elif "titulación" in texto_usuario_limpio or "titulacion" in texto_usuario_limpio or "titularme" in texto_usuario_limpio:
-    print("🔎 Buscando en los archivos de Titulación...")
     filtro = {"tema": "titulacion"}
 elif "servicio" in texto_usuario_limpio or "social" in texto_usuario_limpio:
     filtro = {"tema": "servicioSocial"}
 elif "beca" in texto_usuario_limpio or "apoyo" in texto_usuario_limpio:
     filtro = {"tema": "beca"}
+elif "cedi" in texto_usuario_limpio or "centro de idiomas" in texto_usuario_limpio:
+    filtro = {"tema": "cedi"}
 else:
     filtro = {"tema": "general"}
 
-# 4. EXTRACCIÓN (Top 15 para no perder el contexto)
 resultados = coleccion.query(
     query_embeddings=[vector_pregunta],
     n_results=15,
@@ -57,12 +53,10 @@ else:
     for texto in resultados['documents'][0]:
         contexto_empaquetado += f"- {texto}\n"
         
-    # 👇 AGREGA ESTO PARA VER LAS TRIPAS DEL SISTEMA
-    print("\n📦 CONTEXTO EXTRAÍDO DE CHROMADB (Lo que va a leer la IA):")
+    print("\nCONTEXTO EXTRAÍDO DE CHROMADB (Lo que va a leer la IA):")
     print(contexto_empaquetado)
     print("="*50)
         
-    # 5. EL PROMPT MAESTRO
     prompt_final = f"""Eres un asistente virtual amable de la facultad.
 Tu tarea es responder la pregunta del alumno basándote ÚNICAMENTE en la siguiente información extraída de nuestra base de datos.
 Si la respuesta no está en la información, di "Lo siento, no tengo ese dato en mis registros actuales".
@@ -77,7 +71,6 @@ PREGUNTA DEL ALUMNO: {pregunta_usuario}
     print("\nGenerando respuesta...")
     
     try:
-        # 6. INVOCANDO A LA IA
         respuesta = cliente_gemini.models.generate_content(
             model='gemini-2.5-flash',
             contents=prompt_final
