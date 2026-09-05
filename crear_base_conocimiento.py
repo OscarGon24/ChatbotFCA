@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import pandas as pd
 import chromadb
 from sentence_transformers import SentenceTransformer
+import PyPDF2
 
 load_dotenv()
 
@@ -13,6 +14,9 @@ ruta_titulacion = os.getenv("ruta_titulacion")
 ruta_servicio = os.getenv("ruta_servicio")
 ruta_beca = os.getenv("ruta_becas")
 ruta_cedi = os.getenv("ruta_cedi")
+ruta_reglamento_inscripciones = os.getenv("ruta_reglamento_inscripciones")
+ruta_reglamento_examenes = os.getenv("ruta_reglamento_examenes")
+ruta_historial = os.getenv("historial_chat")
 
 print("Iniciando el motor de Inteligencia Artificial...")
 modelo_lenguaje = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
@@ -192,6 +196,98 @@ try:
         metadatos_lista.append({"tipo": "cedi", "tema": etiqueta_tema})
 except FileNotFoundError:
     print("❌ No se encontró el archivo cedi_fca.csv.")
+
+# --- PROCESAMOS: REGLAMENTO GENERAL DE INSCRIPCIONES ---
+try:
+    print("Leyendo Reglamento oficial en PDF...")
+    ruta_pdf = os.getenv("ruta_reglamento_inscripciones") 
+    
+    with open(ruta_pdf, 'rb') as archivo_pdf:
+        lector_pdf = PyPDF2.PdfReader(archivo_pdf)
+        
+        for numero_pagina, pagina in enumerate(lector_pdf.pages):
+            texto_crudo = pagina.extract_text()
+            
+            if texto_crudo:
+                texto_limpio = texto_crudo.replace('\n', ' ').strip()
+                
+                parrafo = f"Según el documento oficial (página {numero_pagina + 1}): {texto_limpio}"
+                
+                vector = modelo_lenguaje.encode(parrafo).tolist()
+                
+                documentos_texto.append(parrafo)
+                vectores_matematicos.append(vector)
+                
+                ids_unicos.append(f"pdf_reglamento_inscripciones_{numero_pagina}")
+                
+                metadatos_lista.append({"tipo": "documento_oficial", "tema": "general"})
+
+except FileNotFoundError:
+    print("❌ No se encontró el archivo PDF.")
+except Exception as e:
+    print(f"⚠️ Hubo un error leyendo el PDF: {e}")
+
+# --- PROCESAMOS: REGLAMENTO GENERAL DE EXÁMENES ---
+try:
+    print("Leyendo Reglamento oficial en PDF...")
+    ruta_pdf = os.getenv("ruta_reglamento_examenes") 
+    
+    with open(ruta_pdf, 'rb') as archivo_pdf:
+        lector_pdf = PyPDF2.PdfReader(archivo_pdf)
+        
+        # Iteramos sobre cada página del documento
+        for numero_pagina, pagina in enumerate(lector_pdf.pages):
+            texto_crudo = pagina.extract_text()
+            
+            if texto_crudo:
+                texto_limpio = texto_crudo.replace('\n', ' ').strip()
+                
+                parrafo = f"Según el documento oficial (página {numero_pagina + 1}): {texto_limpio}"
+                
+                vector = modelo_lenguaje.encode(parrafo).tolist()
+                
+                documentos_texto.append(parrafo)
+                vectores_matematicos.append(vector)
+                
+                ids_unicos.append(f"pdf_reglamento_examenes_{numero_pagina}")
+                
+                metadatos_lista.append({"tipo": "documento_oficial", "tema": "general"})
+
+except FileNotFoundError:
+    print("❌ No se encontró el archivo PDF.")
+except Exception as e:
+    print(f"⚠️ Hubo un error leyendo el PDF: {e}")
+
+# --- PROCESAMOS: HISTORIAL DE RETROALIMENTACIÓN ---
+try:
+    print("Leyendo Historial de Chat (Retroalimentación)...")
+    
+    if os.path.exists(ruta_historial):
+        datos_historial = pd.read_csv(ruta_historial, encoding='utf-8')
+        
+        datos_buenos = datos_historial[datos_historial['Sirvio'].astype(str).str.strip().str.upper() == 'SI']
+        
+        for indice, fila in datos_buenos.iterrows():
+            pregunta = fila.get('Pregunta', '')
+            respuesta = fila.get('Respuesta', '')
+            
+            # Formateamos como Pregunta Frecuente
+            parrafo = f"Pregunta frecuente de alumno: '{pregunta}'. La respuesta oficial es: {respuesta}"
+            vector = modelo_lenguaje.encode(parrafo).tolist()
+                
+            documentos_texto.append(parrafo)
+            vectores_matematicos.append(vector)
+            ids_unicos.append(f"historial_{indice}")
+            
+            # Etiqueta general para que siempre esté disponible
+            metadatos_lista.append({"tipo": "faq_historico", "tema": "general"})
+            
+        print(f"✅ Se inyectaron {len(datos_buenos)} respuestas validadas del historial.")
+    else:
+        print("⚠️ No existe historial_chat.csv todavía. Se omitirá este paso.")
+
+except Exception as e:
+    print(f"❌ Error leyendo el historial: {e}")
 
 if len(documentos_texto) > 0:
     print("\nInyectando vectores combinados en ChromaDB...")
